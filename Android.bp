@@ -46,6 +46,15 @@ cc_defaults {
 cc_library {
     name: "libarm-optimized-routines-math",
     defaults: ["libarm-optimized-routines-defaults"],
+    exclude_srcs: [
+        // Provided by:
+        // bionic/libm/upstream-freebsd/lib/msun/src/s_erf.c
+        // bionic/libm/upstream-freebsd/lib/msun/src/s_erff.c
+        "math/erf.c",
+        "math/erf_data.c",
+        "math/erff.c",
+        "math/erff_data.c",
+    ],
     srcs: [
         "math/*.c",
     ],
@@ -141,7 +150,7 @@ sh_test {
     test_suites: ["general-tests"],
     host_supported: true,
     device_supported: false,
-    test_config: "arm-optimized-routines-tests.xml",
+    require_root: true,
     target_required: [
         "mathtest",
         "ulp",
