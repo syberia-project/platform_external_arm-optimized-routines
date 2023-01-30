@@ -1,11 +1,14 @@
 /*
  * Single-precision vector tan(x) function.
  *
- * Copyright (c) 2020-2022, Arm Limited.
+ * Copyright (c) 2020-2023, Arm Limited.
  * SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
  */
 
 #include "sv_math.h"
+#include "pl_sig.h"
+#include "pl_test.h"
+
 #if SV_SUPPORTED
 
 /* Constants.  */
@@ -13,7 +16,7 @@
 #define NegPio2_2 (sv_f32 (0x1.777a5cp-25f))
 #define NegPio2_3 (sv_f32 (0x1.ee59dap-50f))
 #define InvPio2 (sv_f32 (0x1.45f306p-1f))
-#define RangeVal (sv_f32 (0x1p17f))
+#define RangeVal (sv_f32 (0x1p15f))
 #define Shift (sv_f32 (0x1.8p+23f))
 
 #define poly(i) sv_f32 (__tanf_poly_data.poly_tan[i])
@@ -27,9 +30,8 @@ eval_poly (svbool_t pg, sv_f32_t z)
   sv_f32_t y_10 = sv_fma_f32_x (pg, z, poly (1), poly (0));
   sv_f32_t y_32 = sv_fma_f32_x (pg, z, poly (3), poly (2));
   sv_f32_t y_54 = sv_fma_f32_x (pg, z, poly (5), poly (4));
-  sv_f32_t y_6_54 = sv_fma_f32_x (pg, z2, poly (6), y_54);
   sv_f32_t y_32_10 = sv_fma_f32_x (pg, z2, y_32, y_10);
-  sv_f32_t y = sv_fma_f32_x (pg, z4, y_6_54, y_32_10);
+  sv_f32_t y = sv_fma_f32_x (pg, z4, y_54, y_32_10);
   return y;
 }
 
@@ -40,10 +42,9 @@ __sv_tanf_specialcase (sv_f32_t x, sv_f32_t y, svbool_t cmp)
 }
 
 /* Fast implementation of SVE tanf.
-   The maximum measured errors were located near RangeVal.
-   Maximum error: 3.121ulps.
-   svtan_f32(0x1.ff3df8p+16) got -0x1.fbb7b8p-1
-			    want -0x1.fbb7b2p-1.  */
+   Maximum error is 3.45 ULP:
+   __sv_tanf(-0x1.e5f0cap+13) got 0x1.ff9856p-1
+			     want 0x1.ff9850p-1.  */
 sv_f32_t
 __sv_tanf_x (sv_f32_t x, const svbool_t pg)
 {
@@ -96,6 +97,16 @@ __sv_tanf_x (sv_f32_t x, const svbool_t pg)
   return y;
 }
 
-strong_alias (__sv_tanf_x, _ZGVsMxv_tanf)
+PL_ALIAS (__sv_tanf_x, _ZGVsMxv_tanf)
 
+PL_SIG (SV, F, 1, tan, -3.1, 3.1)
+PL_TEST_ULP (__sv_tanf, 2.96)
+PL_TEST_INTERVAL (__sv_tanf, -0.0, -0x1p126, 100)
+PL_TEST_INTERVAL (__sv_tanf, 0x1p-149, 0x1p-126, 4000)
+PL_TEST_INTERVAL (__sv_tanf, 0x1p-126, 0x1p-23, 50000)
+PL_TEST_INTERVAL (__sv_tanf, 0x1p-23, 0.7, 50000)
+PL_TEST_INTERVAL (__sv_tanf, 0.7, 1.5, 50000)
+PL_TEST_INTERVAL (__sv_tanf, 1.5, 100, 50000)
+PL_TEST_INTERVAL (__sv_tanf, 100, 0x1p17, 50000)
+PL_TEST_INTERVAL (__sv_tanf, 0x1p17, inf, 50000)
 #endif

@@ -1,10 +1,13 @@
 /*
  * Single-precision scalar tan(x) function.
  *
- * Copyright (c) 2021-2022, Arm Limited.
+ * Copyright (c) 2021-2023, Arm Limited.
  * SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
  */
 #include "math_config.h"
+#include "pl_sig.h"
+#include "pl_test.h"
+#include "pairwise_hornerf.h"
 
 /* Useful constants.  */
 #define NegPio2_1 (-0x1.921fb6p+0f)
@@ -19,28 +22,19 @@
 /* 2PI * 2^-64.  */
 #define Pio2p63 (0x1.921FB54442D18p-62)
 
-#define P __tanf_poly_data.poly_tan
-#define Q __tanf_poly_data.poly_cotan
+#define P(i) __tanf_poly_data.poly_tan[i]
+#define Q(i) __tanf_poly_data.poly_cotan[i]
 
 static inline float
 eval_P (float z)
 {
-  float z2 = z * z;
-  float y_10 = fmaf (z, P[1], P[0]);
-  float y_32 = fmaf (z, P[3], P[2]);
-  float y_54 = fmaf (z, P[5], P[4]);
-  float y_6_54 = fmaf (z2, P[6], y_54);
-  float y_32_10 = fmaf (z2, y_32, y_10);
-  float y = fmaf (z2, z2 * y_6_54, y_32_10);
-  return y;
+  return PAIRWISE_HORNER_5 (z, z * z, P);
 }
 
 static inline float
 eval_Q (float z)
 {
-  float z2 = z * z;
-  float y = fmaf (z2, fmaf (z, Q[3], Q[2]), fmaf (z, Q[1], Q[0]));
-  return y;
+  return PAIRWISE_HORNER_3 (z, z * z, Q);
 }
 
 /* Reduction of the input argument x using Cody-Waite approach, such that x = r
@@ -190,3 +184,19 @@ tanf (float x)
   /* A unified way of assembling the result on both interval types.  */
   return fmaf (scale, p, offset);
 }
+
+PL_SIG (S, F, 1, tan, -3.1, 3.1)
+PL_TEST_ULP (tanf, 2.80)
+PL_TEST_INTERVAL (tanf, 0, 0xffff0000, 10000)
+PL_TEST_INTERVAL (tanf, 0x1p-127, 0x1p-14, 50000)
+PL_TEST_INTERVAL (tanf, -0x1p-127, -0x1p-14, 50000)
+PL_TEST_INTERVAL (tanf, 0x1p-14, 0.7, 50000)
+PL_TEST_INTERVAL (tanf, -0x1p-14, -0.7, 50000)
+PL_TEST_INTERVAL (tanf, 0.7, 1.5, 50000)
+PL_TEST_INTERVAL (tanf, -0.7, -1.5, 50000)
+PL_TEST_INTERVAL (tanf, 1.5, 0x1p17, 50000)
+PL_TEST_INTERVAL (tanf, -1.5, -0x1p17, 50000)
+PL_TEST_INTERVAL (tanf, 0x1p17, 0x1p54, 50000)
+PL_TEST_INTERVAL (tanf, -0x1p17, -0x1p54, 50000)
+PL_TEST_INTERVAL (tanf, 0x1p54, inf, 50000)
+PL_TEST_INTERVAL (tanf, -0x1p54, -inf, 50000)
